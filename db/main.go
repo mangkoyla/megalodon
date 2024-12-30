@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -13,17 +12,14 @@ import (
 	logger "github.com/FoolVPN-ID/Megalodon/log"
 	"github.com/FoolVPN-ID/Megalodon/sandbox"
 	"github.com/FoolVPN-ID/Megalodon/telegram/bot"
-	"github.com/tursodatabase/go-libsql"
+
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 )
 
 type databaseStruct struct {
 	client           *sql.DB
-	dbDir            string
-	dbName           string
-	dbPath           string
 	dbUrl            string
 	dbToken          string
-	dbConnector      *libsql.Connector
 	logger           *logger.LoggerStruct
 	rawAccountTotal  int
 	uniqueIds        []string
@@ -32,52 +28,32 @@ type databaseStruct struct {
 
 func MakeDatabase() *databaseStruct {
 	dbInstance := databaseStruct{
-		dbName:  "local-megalodon.db",
 		dbUrl:   os.Getenv("TURSO_DATABASE_URL"),
 		dbToken: os.Getenv("TURSO_AUTH_TOKEN"),
 		logger:  logger.MakeLogger(),
 	}
 
-	dir, err := os.MkdirTemp("", "libsql-*")
-	if err != nil {
-		panic(err)
-	}
-
-	dbInstance.dbDir = dir
-	dbInstance.dbPath = filepath.Join(dir, dbInstance.dbName)
 	dbInstance.connect()
 
 	return &dbInstance
 }
 
 func (db *databaseStruct) connect() {
-	connector, err := libsql.NewEmbeddedReplicaConnector(db.dbPath, db.dbUrl, libsql.WithAuthToken(db.dbToken))
+	url := fmt.Sprintf("%s?authToken=%s", db.dbUrl, db.dbToken)
+	client, err := sql.Open("libsql", url)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "failed to open db %s: %s", url, err)
+		os.Exit(1)
 	}
 
-	db.dbConnector = connector
-	db.client = sql.OpenDB(db.dbConnector)
+	db.client = client
 }
 
-func (db *databaseStruct) SyncAndClose() {
-	db.logger.Info("Syncing database...")
-	if _, err := db.dbConnector.Sync(); err != nil {
-		panic(err)
-	}
-
+func (db *databaseStruct) Close() {
 	db.logger.Info("Closing client...")
 	if err := db.client.Close(); err != nil {
 		db.logger.Error(err.Error())
 	}
-
-	db.logger.Info("Closing connector...")
-	if err := db.dbConnector.Close(); err != nil {
-		db.logger.Error(err.Error())
-	}
-
-	db.logger.Info("Cleaning temporary files...")
-	os.RemoveAll(db.dbDir)
 }
 
 func (db *databaseStruct) createTableSafe() {
@@ -123,10 +99,10 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	db.transactionQuery = db.buildInsertQuery(results)
 
 	tgb := bot.MakeTGgBot()
+	tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.transactionQuery, "DB Query")
 
 	if _, err := db.client.Query(db.transactionQuery); err != nil {
 		db.logger.Error(err.Error())
-		tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.transactionQuery, err.Error())
 		return err
 	} else {
 		db.logger.Info("=========================")

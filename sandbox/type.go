@@ -14,5 +14,4 @@ type TestResultStruct struct {
 	TestPassed  []string
 	ConfigGeoip configGeoipStruct
 	Outbound    option.Outbound
-	UniqueID    string
 }

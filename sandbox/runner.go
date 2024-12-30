@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
+	"strings"
 
 	"github.com/FoolVPN-ID/Megalodon/common/helper"
 	"github.com/Noooste/azuretls-client"
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/option"
 )
+
+var orgPattern = regexp.MustCompile(`(\w*)`)
 
 const connectivityTest = "https://myip.shylook.workers.dev"
 
@@ -51,6 +55,10 @@ func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (
 			json.Unmarshal(resp.Body, &configGeoip)
 		}
 	}
+
+	// Post-processing geoip
+	filteredAsOrganization := orgPattern.FindAllString(configGeoip.AsOrganization, -1)
+	configGeoip.AsOrganization = strings.Join(filteredAsOrganization, " ")
 
 	return configGeoip, nil
 }

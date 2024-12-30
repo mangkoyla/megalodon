@@ -83,10 +83,8 @@ func main() {
 
 	// Save results to database
 	logger.Info("Saving results to database...")
-	if err := db.Save(sb.Results); err == nil {
-		// Sync local to remote
-		db.SyncAndClose()
-	}
+	db.Save(sb.Results)
+	db.Close()
 
 	bot.SendTextToAdmin(fmt.Sprintf("Megalodon finished in %f Minutes!", time.Since(start).Minutes()))
 }

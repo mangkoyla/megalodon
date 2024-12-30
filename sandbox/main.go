@@ -3,7 +3,6 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"time"
 
@@ -37,14 +36,6 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 
 	testResult := TestResultStruct{
 		Outbound: singConfig.Outbounds[0],
-		UniqueID: MakeUniqueID(singConfig.Outbounds[0]),
-	}
-
-	// Check for existing unique id
-	for _, result := range sb.Results {
-		if result.UniqueID == testResult.UniqueID {
-			return errors.New("unique id exists")
-		}
 	}
 
 	for _, testType := range testTypes {
