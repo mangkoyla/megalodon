@@ -3,20 +3,29 @@ package main
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	database "github.com/FoolVPN-ID/Megalodon/db"
 	logger "github.com/FoolVPN-ID/Megalodon/log"
 	"github.com/FoolVPN-ID/Megalodon/provider"
 	"github.com/FoolVPN-ID/Megalodon/sandbox"
+	"github.com/FoolVPN-ID/Megalodon/telegram/bot"
 	"github.com/joho/godotenv"
 )
 
 func main() {
-	logger := logger.MakeLogger()
 	godotenv.Load()
-	db := database.MakeDatabase()
-	prov := provider.MakeSubProvider()
-	sb := sandbox.MakeSandbox()
+
+	var (
+		bot    = bot.MakeTGgBot()
+		logger = logger.MakeLogger()
+		db     = database.MakeDatabase()
+		prov   = provider.MakeSubProvider()
+		sb     = sandbox.MakeSandbox()
+	)
+
+	// Send notification to admin
+	bot.SendTextToAdmin("Megalodon started!")
 
 	// Nodes gathering
 	logger.Info("Gathering nodes...")
@@ -25,9 +34,22 @@ func main() {
 
 	// Goroutine goes here 💪🏻
 	var (
-		wg    = sync.WaitGroup{}
-		queue = make(chan struct{}, 200)
+		wg     = sync.WaitGroup{}
+		queue  = make(chan struct{}, 200)
+		isDone = false
 	)
+
+	// Report progress each minute
+	go func() {
+		for {
+			time.Sleep(60 * time.Second)
+			if isDone {
+				break
+			}
+
+			bot.SendTextToAdmin(fmt.Sprintf("Account successfully tested: %d", len(sb.Results)))
+		}
+	}()
 
 	logger.Info("Processing...")
 	for i, rawConfig := range prov.Nodes {
@@ -52,6 +74,9 @@ func main() {
 	logger.Info("Waiting for goroutines...")
 	wg.Wait()
 
+	// Stop reporting
+	isDone = true
+
 	// Save results to database
 	logger.Info("Saving results to database...")
 	if err := db.Save(sb.Results); err == nil {
@@ -59,4 +84,5 @@ func main() {
 		db.SyncAndClose()
 	}
 
+	bot.SendTextToAdmin("Megalodon finished!")
 }

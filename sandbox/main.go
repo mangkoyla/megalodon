@@ -99,7 +99,7 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 		configForTest.UnmarshalJSON(configForTestByte)
 
 		func() {
-			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			if configGeoip, err := testSingConfigWithContext(configForTest, ctx); err == nil {

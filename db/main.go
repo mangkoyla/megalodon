@@ -122,15 +122,20 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	db.createTableSafe()
 	db.transactionQuery = db.buildInsertQuery(results)
 
+	tgb := bot.MakeTGgBot()
+
 	if _, err := db.client.Query(db.transactionQuery); err != nil {
 		db.logger.Error(err.Error())
-		bot.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.transactionQuery, err.Error())
+		tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.transactionQuery, err.Error())
 		return err
 	} else {
 		db.logger.Info("=========================")
 		db.logger.Success("Data successfully saved!")
 		db.logger.Info(fmt.Sprintf("Total raw account: %d", db.rawAccountTotal))
 		db.logger.Info(fmt.Sprintf("Total account saved: %d", len(db.uniqueIds)))
+
+		// Report
+		tgb.SendTextToAdmin(fmt.Sprintf("Account saved: %d", len(db.uniqueIds)))
 	}
 
 	return nil

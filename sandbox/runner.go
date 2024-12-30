@@ -35,6 +35,7 @@ func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (
 		isDone  = make(chan int)
 	)
 	go func() {
+		// Resty seems problematic, subject to be changed
 		client := resty.New()
 		client.SetTimeout(5 * time.Second)
 		client.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
