@@ -14,35 +14,53 @@ import (
 
 const connectivityTest = "https://myip.shylook.workers.dev"
 
-func testSingConfig(singConfig option.Options) (configGeoipStruct, error) {
+func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (configGeoipStruct, error) {
 	configGeoip := configGeoipStruct{}
 	boxInstance, err := box.New(box.Options{
-		Context: context.Background(),
+		Context: ctx,
 		Options: singConfig,
 	})
 	if err != nil {
 		return configGeoip, err
 	}
 
-	client := resty.New()
-	client.SetTimeout(5 * time.Second)
-	client.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
-
-	// Start test
+	// Start sing-box
 	defer boxInstance.Close()
 	if err := boxInstance.Start(); err != nil {
 		return configGeoip, err
 	}
 
-	resp, err := client.R().Get(connectivityTest)
-	if err != nil {
-		return configGeoip, err
-	}
+	var (
+		errChan = make(chan error)
+		isDone  = make(chan int)
+	)
+	go func() {
+		client := resty.New()
+		client.SetTimeout(5 * time.Second)
+		client.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
 
-	if resp.StatusCode() == 200 {
-		json.Unmarshal(resp.Body(), &configGeoip)
+		resp, err := client.R().Get(connectivityTest)
+		if err != nil {
+			errChan <- err
+		} else {
+			if resp.StatusCode() == 200 {
+				json.Unmarshal(resp.Body(), &configGeoip)
+			}
+		}
+
+		close(errChan)
+		isDone <- 1
+	}()
+
+	select {
+	case <-ctx.Done():
+		return configGeoip, errors.New("operation timeout")
+	case <-isDone:
+		for err := range errChan {
+			if err != nil {
+				return configGeoip, err
+			}
+		}
 		return configGeoip, nil
 	}
-
-	return configGeoip, errors.New(resp.Status())
 }

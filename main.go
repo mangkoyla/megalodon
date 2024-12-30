@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"sync"
 
 	database "github.com/FoolVPN-ID/Megalodon/db"
@@ -25,22 +26,26 @@ func main() {
 	// Goroutine goes here 💪🏻
 	var (
 		wg    = sync.WaitGroup{}
-		queue = make(chan struct{}, 100)
+		queue = make(chan struct{}, 200)
 	)
 
 	logger.Info("Processing...")
-	for i, node := range prov.Nodes {
+	for i, rawConfig := range prov.Nodes {
 		wg.Add(1)
 		queue <- struct{}{}
 
-		go func() {
+		go func(node string, currentCount, maxCount int) {
 			defer func() {
-				<-queue
+				if err := recover(); err != nil {
+					logger.Error(fmt.Sprintf("Recover from panic: %v", err))
+				}
+
 				wg.Done()
+				<-queue
 			}()
 
-			sb.TestConfig(node, i, len(prov.Nodes))
-		}()
+			sb.TestConfig(node, currentCount, maxCount)
+		}(rawConfig, i, len(prov.Nodes))
 	}
 
 	// Wait for all concurrency to be done

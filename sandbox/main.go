@@ -1,9 +1,11 @@
 package sandbox
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	logger "github.com/FoolVPN-ID/Megalodon/log"
 	"github.com/FoolVPN-ID/tool/modules/config"
@@ -92,18 +94,24 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 		configForTest := option.Options{}
 		configForTestByte, err := json.Marshal(singConfigMapping)
 		if err != nil {
-			panic(err)
+			return err
 		}
 		configForTest.UnmarshalJSON(configForTestByte)
 
-		if configGeoip, err := testSingConfig(configForTest); err == nil {
-			testResult.TestPassed = append(testResult.TestPassed, testType)
-			testResult.ConfigGeoip = configGeoip
+		func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
 
-			sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
-		} else {
-			sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
-		}
+			if configGeoip, err := testSingConfigWithContext(configForTest, ctx); err == nil {
+				testResult.TestPassed = append(testResult.TestPassed, testType)
+				testResult.ConfigGeoip = configGeoip
+
+				sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
+			} else {
+				sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
+			}
+		}()
+
 	}
 
 	if len(testResult.TestPassed) > 0 {
