@@ -15,11 +15,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Setup dotenv
-      uses: akiojin/decode-base64-github-action@v0.1.0
-      id: decode-base64
-      with:
-        base64: ${{ secrets.DOTENV }}
-        output-path: ${{ runner.temp }}/.dotenv
+      run: echo ${{ secrets.DOTENV }} | base64 --decode > ~/.dotenv
 
     - name: Setup Go environment
       uses: actions/setup-go@v5.2.0
