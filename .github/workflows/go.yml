@@ -5,23 +5,22 @@ name: Go
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-
   hunt:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup dotenv
-      run: echo ${{ secrets.DOTENV }} | base64 --decode > ~/.env
+      - name: Setup dotenv
+        run: echo ${{ secrets.DOTENV }} | base64 --decode > ./.env
 
-    - name: Setup Go environment
-      uses: actions/setup-go@v5.2.0
+      - name: Setup Go environment
+        uses: actions/setup-go@v5.2.0
 
-    - name: Build
-      run: go build -tags with_utls,with_grpc -o megalodon ./main.go
+      - name: Build
+        run: go build -tags with_utls,with_grpc -o megalodon ./main.go
 
-    - name: Run
-      run: ./megalodon
+      - name: Run
+        run: ./megalodon
