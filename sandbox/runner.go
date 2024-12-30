@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/FoolVPN-ID/Megalodon/common/helper"
 	"github.com/Noooste/azuretls-client"
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/option"
@@ -13,6 +14,10 @@ import (
 const connectivityTest = "https://myip.shylook.workers.dev"
 
 func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (configGeoipStruct, error) {
+	// Re-allocate free port
+	freePort := helper.GetFreePort()
+	singConfig.Inbounds[0].MixedOptions.ListenPort = uint16(freePort)
+
 	configGeoip := configGeoipStruct{}
 	boxInstance, err := box.New(box.Options{
 		Context: ctx,
@@ -29,9 +34,10 @@ func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (
 	}
 
 	session := azuretls.NewSessionWithContext(ctx)
+	session.InsecureSkipVerify = true
 	defer session.Close()
 
-	session.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
+	session.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", freePort))
 
 	if err := session.Connect(connectivityTest); err != nil {
 		return configGeoip, err

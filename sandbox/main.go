@@ -48,11 +48,6 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 	}
 
 	for _, testType := range testTypes {
-		// Bad
-		// Evil
-		// Avoid
-		// Danger
-		// Must find a way to deep copy map effienctly
 		singConfigMapping := map[string]any{}
 		singConfigByte, _ := json.Marshal(singConfig)
 		json.Unmarshal(singConfigByte, &singConfigMapping)
@@ -98,20 +93,20 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 		}
 		configForTest.UnmarshalJSON(configForTestByte)
 
-		func() {
+		// Close closure variable
+		func(connMode string) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
 			if configGeoip, err := testSingConfigWithContext(configForTest, ctx); err == nil {
-				testResult.TestPassed = append(testResult.TestPassed, testType)
+				testResult.TestPassed = append(testResult.TestPassed, connMode)
 				testResult.ConfigGeoip = configGeoip
 
 				sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
 			} else {
 				sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
 			}
-		}()
-
+		}(testType)
 	}
 
 	if len(testResult.TestPassed) > 0 {
