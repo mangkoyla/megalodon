@@ -1,0 +1,31 @@
+# This workflow will build a golang project
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
+
+name: Go
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+
+  hunt:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup dotenv
+      uses: akiojin/decode-base64-github-action@v0.1.0
+      id: decode-base64
+      with:
+        base64: ${{ secrets.DOTENV }}
+        output-path: ${{ runner.temp }}/.dotenv
+
+    - name: Setup Go environment
+      uses: actions/setup-go@v5.2.0
+
+    - name: Build
+      run: go build -tags with_utls,with_grpc -o megalodon ./main.go
+
+    - name: Run
+      run: ./megalodon
