@@ -5,8 +5,8 @@ go 1.23.2
 require (
 	github.com/FoolVPN-ID/tool v0.0.0-20241229032554-33a4194d047c
 	github.com/NicoNex/echotron/v3 v3.39.0
+	github.com/Noooste/azuretls-client v1.6.1
 	github.com/fatih/color v1.18.0
-	github.com/go-resty/resty/v2 v2.16.2
 	github.com/joho/godotenv v1.5.1
 	github.com/sagernet/sing-box v1.10.5
 	github.com/tursodatabase/go-libsql v0.0.0-20241221181756-6121e81fbf92
@@ -15,6 +15,9 @@ require (
 require (
 	berty.tech/go-libtor v1.0.385 // indirect
 	github.com/LalatinaHub/LatinaSub-go v0.0.0-20241227142240-d612b367016b // indirect
+	github.com/Noooste/fhttp v1.0.12 // indirect
+	github.com/Noooste/utls v1.2.12 // indirect
+	github.com/Noooste/websocket v1.0.3 // indirect
 	github.com/andybalholm/brotli v1.1.1 // indirect
 	github.com/antlr4-go/antlr/v4 v4.13.0 // indirect
 	github.com/caddyserver/certmagic v0.21.4 // indirect

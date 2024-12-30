@@ -17,6 +17,7 @@ func main() {
 	godotenv.Load()
 
 	var (
+		start  = time.Now()
 		bot    = bot.MakeTGgBot()
 		logger = logger.MakeLogger()
 		db     = database.MakeDatabase()
@@ -41,13 +42,16 @@ func main() {
 
 	// Report progress each minute
 	go func() {
+		count := 0
 		for {
-			time.Sleep(60 * time.Second)
 			if isDone {
 				break
 			}
 
-			bot.SendTextToAdmin(fmt.Sprintf("Account successfully tested: %d", len(sb.Results)))
+			count += 1
+			time.Sleep(60 * time.Second)
+
+			bot.SendTextToAdmin(fmt.Sprintf("[%d] Account successfully tested: %d", count, len(sb.Results)))
 		}
 	}()
 
@@ -84,5 +88,5 @@ func main() {
 		db.SyncAndClose()
 	}
 
-	bot.SendTextToAdmin("Megalodon finished!")
+	bot.SendTextToAdmin(fmt.Sprintf("Megalodon finished in %f Minutes!", time.Since(start).Minutes()))
 }

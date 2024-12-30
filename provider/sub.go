@@ -9,7 +9,7 @@ import (
 
 	"github.com/FoolVPN-ID/Megalodon/common/helper"
 	"github.com/FoolVPN-ID/Megalodon/constant"
-	"github.com/go-resty/resty/v2"
+	"github.com/Noooste/azuretls-client"
 )
 
 var configSeparators = []string{"\n", "|", ",", "<br/>"}
@@ -26,19 +26,23 @@ func (prov *providerStruct) GatherSubFile() {
 	json.Unmarshal([]byte(subFileUrlString), &subFileUrls)
 
 	for _, subFileUrl := range subFileUrls {
-		client := resty.New()
-		resp, err := client.R().Get(subFileUrl)
-		if err != nil {
-			prov.logger.Error(err.Error())
-			continue
-		}
+		func() {
+			session := azuretls.NewSession()
+			defer session.Close()
 
-		if resp.StatusCode() == 200 {
-			var subFile = []providerSubStruct{}
-			if err := json.Unmarshal(resp.Body(), &subFile); err == nil {
-				prov.subs = append(prov.subs, subFile...)
+			resp, err := session.Get(subFileUrl)
+			if err != nil {
+				prov.logger.Error(err.Error())
+				return
 			}
-		}
+
+			if resp.StatusCode == 200 {
+				var subFile = []providerSubStruct{}
+				if err := json.Unmarshal(resp.Body, &subFile); err == nil {
+					prov.subs = append(prov.subs, subFile...)
+				}
+			}
+		}()
 	}
 }
 
@@ -48,8 +52,6 @@ func (prov *providerStruct) GatherNodes() {
 		queue = make(chan struct{}, 10)
 	)
 
-	client := resty.New()
-	client.SetTimeout(10 * time.Second)
 	for i, sub := range prov.subs {
 		var subUrls = strings.Split(sub.URL, "|")
 		for x, subUrl := range subUrls {
@@ -66,17 +68,21 @@ func (prov *providerStruct) GatherNodes() {
 					recover()
 				}()
 
-				resp, err := client.R().Get(subUrl)
+				session := azuretls.NewSession()
+				session.SetTimeout(10 * time.Second)
+				defer session.Close()
+
+				resp, err := session.Get(subUrl)
 				if err != nil {
 					panic(err)
 				}
 
-				if resp.StatusCode() == 200 {
+				if resp.StatusCode == 200 {
 					nodes := []string{}
 					// re-Filter nodes due to some bullshit
 					for _, separator := range configSeparators {
 						if len(nodes) == 0 {
-							nodes = append(nodes, strings.Split(helper.DecodeBase64Safe(resp.String()), separator)...)
+							nodes = append(nodes, strings.Split(helper.DecodeBase64Safe(string(resp.Body)), separator)...)
 						} else {
 							filteredNodes := []string{}
 							for _, node := range nodes {

@@ -3,11 +3,9 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"time"
 
-	"github.com/go-resty/resty/v2"
+	"github.com/Noooste/azuretls-client"
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/option"
 )
@@ -30,38 +28,23 @@ func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (
 		return configGeoip, err
 	}
 
-	var (
-		errChan = make(chan error)
-		isDone  = make(chan int)
-	)
-	go func() {
-		// Resty seems problematic, subject to be changed
-		client := resty.New()
-		client.SetTimeout(5 * time.Second)
-		client.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
+	session := azuretls.NewSessionWithContext(ctx)
+	defer session.Close()
 
-		resp, err := client.R().Get(connectivityTest)
-		if err != nil {
-			errChan <- err
-		} else {
-			if resp.StatusCode() == 200 {
-				json.Unmarshal(resp.Body(), &configGeoip)
-			}
-		}
+	session.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", singConfig.Inbounds[0].MixedOptions.ListenPort))
 
-		close(errChan)
-		isDone <- 1
-	}()
-
-	select {
-	case <-ctx.Done():
-		return configGeoip, errors.New("operation timeout")
-	case <-isDone:
-		for err := range errChan {
-			if err != nil {
-				return configGeoip, err
-			}
-		}
-		return configGeoip, nil
+	if err := session.Connect(connectivityTest); err != nil {
+		return configGeoip, err
 	}
+
+	resp, err := session.Get(connectivityTest)
+	if err != nil {
+		return configGeoip, err
+	} else {
+		if resp.StatusCode == 200 {
+			json.Unmarshal(resp.Body, &configGeoip)
+		}
+	}
+
+	return configGeoip, nil
 }
