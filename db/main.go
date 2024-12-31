@@ -17,13 +17,13 @@ import (
 )
 
 type databaseStruct struct {
-	client           *sql.DB
-	dbUrl            string
-	dbToken          string
-	logger           *logger.LoggerStruct
-	rawAccountTotal  int
-	uniqueIds        []string
-	transactionQuery string
+	client          *sql.DB
+	dbUrl           string
+	dbToken         string
+	logger          *logger.LoggerStruct
+	rawAccountTotal int
+	uniqueIds       []string
+	queries         []string
 }
 
 func MakeDatabase() *databaseStruct {
@@ -96,12 +96,28 @@ func (db *databaseStruct) createTableSafe() {
 
 func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	db.createTableSafe()
-	db.transactionQuery = db.buildInsertQuery(results)
+	db.queries = append(db.queries, []string{"DELETE FROM proxies;", db.buildInsertQuery(results)}...)
 
 	tgb := bot.MakeTGgBot()
-	tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.transactionQuery, "DB Query")
+	tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.queries[1], "DB Query")
 
-	if _, err := db.client.Query(db.transactionQuery); err != nil {
+	// Begin transaction
+	transaction, err := db.client.Begin()
+	if err != nil {
+		db.logger.Error(err.Error())
+		return err
+	}
+
+	for _, dbQuery := range db.queries {
+		if _, err := transaction.Exec(dbQuery); err != nil {
+			transaction.Rollback()
+			db.logger.Error(err.Error())
+			return err
+		}
+	}
+
+	if err := transaction.Commit(); err != nil {
+		transaction.Rollback()
 		db.logger.Error(err.Error())
 		return err
 	} else {
@@ -118,7 +134,6 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 }
 
 func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) string {
-	var insertQuery = "BEGIN; DELETE FROM proxies;"
 	db.rawAccountTotal = len(results)
 
 	tableFieldValues := []DatabaseFieldStruct{}
@@ -255,7 +270,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) s
 		values = append(values, value)
 	}
 
-	insertQuery += fmt.Sprintf(`INSERT INTO proxies (
+	insertQuery := fmt.Sprintf(`INSERT INTO proxies (
 		SERVER,
 		IP,
 		SERVER_PORT,
@@ -278,7 +293,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) s
 		REGION,
 		ORG,
 		VPN
-	) VALUES %s; COMMIT;`, strings.ReplaceAll(strings.Join(values, ","), `"`, ""))
+	) VALUES %s;`, strings.ReplaceAll(strings.Join(values, ","), `"`, ""))
 
 	return insertQuery
 }
