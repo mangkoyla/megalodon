@@ -24,6 +24,7 @@ type databaseStruct struct {
 	rawAccountTotal int
 	uniqueIds       []string
 	queries         []string
+	ErrorValues     []string
 }
 
 func MakeDatabase() *databaseStruct {
@@ -96,10 +97,14 @@ func (db *databaseStruct) createTableSafe() {
 
 func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	db.createTableSafe()
-	db.queries = append(db.queries, []string{"DELETE FROM proxies;", db.buildInsertQuery(results)}...)
+	db.queries = append(db.queries, "DELETE FROM proxies;")
+	db.queries = append(db.queries, db.buildInsertQuery(results)...)
 
 	tgb := bot.MakeTGgBot()
-	tgb.SendTextFileToAdmin(fmt.Sprintf("%v.txt", time.Now().Unix()), db.queries[1], "DB Query")
+	tgb.SendTextFileToAdmin(fmt.Sprintf("query_%v.txt", time.Now().Unix()), strings.Join(db.queries, "\n"), "DB Query")
+	if len(db.ErrorValues) > 0 {
+		tgb.SendTextFileToAdmin(fmt.Sprintf("error_%v.txt", time.Now().Unix()), strings.Join(db.ErrorValues, "\n"), "Error Values")
+	}
 
 	// Begin transaction
 	transaction, err := db.client.Begin()
@@ -133,7 +138,7 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	return nil
 }
 
-func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) string {
+func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) []string {
 	db.rawAccountTotal = len(results)
 
 	tableFieldValues := []DatabaseFieldStruct{}
@@ -270,7 +275,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) s
 		values = append(values, value)
 	}
 
-	insertQuery := fmt.Sprintf(`INSERT INTO proxies (
+	baseInsertQuery := `INSERT INTO proxies (
 		SERVER,
 		IP,
 		SERVER_PORT,
@@ -293,9 +298,37 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) s
 		REGION,
 		ORG,
 		VPN
-	) VALUES %s;`, strings.ReplaceAll(strings.Join(values, ","), `"`, ""))
+	) VALUES`
 
-	return insertQuery
+	// Filter bad and build insert queries
+	var (
+		validatedValues = []string{}
+		insertQueries   = []string{}
+	)
+	for _, value := range values {
+		if err := db.validateQuery(fmt.Sprintf("%s %s", baseInsertQuery, value)); err != nil {
+			db.logger.Error(err.Error())
+			db.ErrorValues = append(db.ErrorValues, value)
+		} else {
+			validatedValues = append(validatedValues, value)
+		}
+	}
+
+	for i := 0; i < len(validatedValues); i += 500 {
+		end := i + 500
+		if end > len(validatedValues) {
+			end = len(validatedValues)
+		}
+		insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues[i:end], ",")))
+	}
+
+	return insertQueries
+}
+
+func (db *databaseStruct) validateQuery(query string) error {
+	explainQuery := fmt.Sprintf("EXPLAIN %s;", query)
+	_, err := db.client.Query(explainQuery)
+	return err
 }
 
 func (db *databaseStruct) makeUniqueId(field DatabaseFieldStruct) string {

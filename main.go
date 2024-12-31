@@ -17,13 +17,16 @@ func main() {
 	godotenv.Load()
 
 	var (
-		start  = time.Now()
 		bot    = bot.MakeTGgBot()
 		logger = logger.MakeLogger()
 		db     = database.MakeDatabase()
 		prov   = provider.MakeSubProvider()
 		sb     = sandbox.MakeSandbox()
 	)
+
+	// Deferred functions
+	defer db.Close()
+	defer bot.SendTextToAdmin("Megalodon finished!")
 
 	// Send notification to admin
 	bot.SendTextToAdmin("Megalodon started!")
@@ -83,8 +86,7 @@ func main() {
 
 	// Save results to database
 	logger.Info("Saving results to database...")
-	db.Save(sb.Results)
-	db.Close()
-
-	bot.SendTextToAdmin(fmt.Sprintf("Megalodon finished in %f Minutes!", time.Since(start).Minutes()))
+	if err := db.Save(sb.Results); err != nil {
+		panic(err)
+	}
 }
