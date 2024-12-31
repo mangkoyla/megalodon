@@ -301,34 +301,17 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 	) VALUES`
 
 	// Filter bad and build insert queries
-	var (
-		validatedValues = []string{}
-		insertQueries   = []string{}
-	)
-	for _, value := range values {
-		if err := db.validateQuery(fmt.Sprintf("%s %s", baseInsertQuery, value)); err != nil {
-			db.logger.Error(err.Error())
-			db.ErrorValues = append(db.ErrorValues, value)
-		} else {
-			validatedValues = append(validatedValues, value)
-		}
-	}
+	insertQueries := []string{}
 
-	for i := 0; i < len(validatedValues); i += 500 {
+	for i := 0; i < len(values); i += 500 {
 		end := i + 500
-		if end > len(validatedValues) {
-			end = len(validatedValues)
+		if end > len(values) {
+			end = len(values)
 		}
-		insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues[i:end], ",")))
+		insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(values[i:end], ",")))
 	}
 
 	return insertQueries
-}
-
-func (db *databaseStruct) validateQuery(query string) error {
-	explainQuery := fmt.Sprintf("EXPLAIN %s;", query)
-	_, err := db.client.Query(explainQuery)
-	return err
 }
 
 func (db *databaseStruct) makeUniqueId(field DatabaseFieldStruct) string {
