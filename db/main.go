@@ -1,6 +1,7 @@
 package database
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -107,7 +108,10 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 	}
 
 	// Begin transaction
-	transaction, err := db.client.Begin()
+	txCtx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	transaction, err := db.client.BeginTx(txCtx, nil)
 	if err != nil {
 		db.logger.Error(err.Error())
 		return err
