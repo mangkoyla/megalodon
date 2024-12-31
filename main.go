@@ -59,10 +59,12 @@ func main() {
 	}()
 
 	logger.Info("Processing...")
+	nodesCount := len(prov.Nodes)
 	for i, rawConfig := range prov.Nodes {
 		wg.Add(1)
 		queue <- struct{}{}
 
+		logger.Info(fmt.Sprintf("[%d/%d] Testing..., current succeed: %d", i, nodesCount, len(sb.Results)))
 		go func(node string, currentCount, maxCount int) {
 			defer func() {
 				if err := recover(); err != nil {
@@ -74,7 +76,7 @@ func main() {
 			}()
 
 			sb.TestConfig(node, currentCount, maxCount)
-		}(rawConfig, i, len(prov.Nodes))
+		}(rawConfig, i, nodesCount)
 	}
 
 	// Wait for all concurrency to be done
@@ -86,6 +88,7 @@ func main() {
 
 	// Save results to database
 	logger.Info("Saving results to database...")
+	bot.SendTextToAdmin("Saving result to database...")
 	if err := db.Save(sb.Results); err != nil {
 		panic(err)
 	}

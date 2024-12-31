@@ -3,7 +3,6 @@ package sandbox
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	logger "github.com/FoolVPN-ID/Megalodon/log"
@@ -93,9 +92,9 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 				testResult.TestPassed = append(testResult.TestPassed, connMode)
 				testResult.ConfigGeoip = configGeoip
 
-				sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
+				// sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
 			} else {
-				sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
+				// sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
 			}
 		}(testType)
 	}
