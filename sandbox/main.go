@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"time"
 
+	"github.com/FoolVPN-ID/megalodon/common/helper"
 	logger "github.com/FoolVPN-ID/megalodon/log"
 	"github.com/FoolVPN-ID/tool/modules/config"
 	"github.com/sagernet/sing-box/option"
@@ -20,6 +22,7 @@ var (
 type sandboxStruct struct {
 	Results []TestResultStruct
 	log     *logger.LoggerStruct
+	ids     []string
 }
 
 func MakeSandbox() *sandboxStruct {
@@ -33,6 +36,19 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 	if err != nil {
 		return err
 	}
+
+	// Generate and check md5
+	var (
+		outbound, _     = singConfig.Outbounds[0].RawOptions()
+		outboundByte, _ = json.Marshal(outbound)
+		outboundMd5     = helper.GetMD5FromString(string(outboundByte))
+	)
+	for _, id := range sb.ids {
+		if id == outboundMd5 {
+			return errors.New("duplicate account detected")
+		}
+	}
+	sb.ids = append(sb.ids, outboundMd5)
 
 	testResult := TestResultStruct{
 		Outbound:  singConfig.Outbounds[0],

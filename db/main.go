@@ -6,19 +6,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/FoolVPN-ID/megalodon/common/helper"
 	logger "github.com/FoolVPN-ID/megalodon/log"
 	"github.com/FoolVPN-ID/megalodon/sandbox"
 	"github.com/FoolVPN-ID/megalodon/telegram/bot"
-
-	_ "github.com/tursodatabase/libsql-client-go/libsql"
+	"github.com/tursodatabase/go-libsql"
 )
 
 type databaseStruct struct {
+	connector       *libsql.Connector
 	client          *sql.DB
+	dbName          string
+	dbPath          string
+	dbDir           string
 	dbUrl           string
 	dbToken         string
 	logger          *logger.LoggerStruct
@@ -30,32 +35,56 @@ type databaseStruct struct {
 
 func MakeDatabase() *databaseStruct {
 	dbInstance := databaseStruct{
+		dbName:  "local-megalodon.db",
 		dbUrl:   os.Getenv("TURSO_DATABASE_URL"),
 		dbToken: os.Getenv("TURSO_AUTH_TOKEN"),
 		logger:  logger.MakeLogger(),
 	}
 
+	dir, err := os.MkdirTemp("", "libsql-*")
+	if err != nil {
+		dbInstance.logger.Error(err.Error())
+		panic(err)
+	}
+
+	dbInstance.dbDir = dir
+	dbInstance.dbPath = filepath.Join(dir, dbInstance.dbName)
 	dbInstance.connect()
 
 	return &dbInstance
 }
 
 func (db *databaseStruct) connect() {
-	url := fmt.Sprintf("%s?authToken=%s", db.dbUrl, db.dbToken)
-	client, err := sql.Open("libsql", url)
+	connector, err := libsql.NewEmbeddedReplicaConnector(db.dbPath, db.dbUrl, libsql.WithAuthToken(db.dbToken))
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "failed to open db %s: %s", url, err)
-		os.Exit(1)
+		db.logger.Error(err.Error())
+		panic(err)
 	}
 
+	client := sql.OpenDB(connector)
+
+	db.connector = connector
 	db.client = client
 }
 
-func (db *databaseStruct) Close() {
+func (db *databaseStruct) SyncAndClose() {
+	db.logger.Info("Syncing database...")
+	if _, err := db.connector.Sync(); err != nil {
+		db.logger.Error(err.Error())
+	}
+
+	db.logger.Info("Closing connector...")
+	if err := db.connector.Close(); err != nil {
+		db.logger.Error(err.Error())
+	}
+
 	db.logger.Info("Closing client...")
 	if err := db.client.Close(); err != nil {
 		db.logger.Error(err.Error())
 	}
+
+	db.logger.Info("Cleaning temp...")
+	defer os.RemoveAll(db.dbDir)
 }
 
 func (db *databaseStruct) createTableSafe() {
@@ -308,18 +337,51 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		RAW
 	) VALUES`
 
+	// Validate insert per value
+	var (
+		validatedValues = []string{}
+		wg              sync.WaitGroup
+		queue           = make(chan struct{}, 100)
+	)
+	for i, value := range values {
+		wg.Add(1)
+		queue <- struct{}{}
+
+		db.logger.Info(fmt.Sprintf("[%d/%d] Validating account format...", i, len(values)))
+		go func(insertValue string) {
+			defer func() {
+				wg.Done()
+				<-queue
+			}()
+
+			if err := db.validateQuery(fmt.Sprintf("%s %s", baseInsertQuery, value)); err != nil {
+				db.logger.Error(err.Error())
+				return
+			}
+
+			validatedValues = append(validatedValues, insertValue)
+		}(value)
+	}
+	wg.Wait()
+
 	// Filter bad and build insert queries
 	insertQueries := []string{}
 
-	for i := 0; i < len(values); i += 500 {
-		end := i + 500
-		if end > len(values) {
-			end = len(values)
-		}
-		insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(values[i:end], ",")))
-	}
+	// for i := 0; i < len(validatedValues); i += 500 {
+	// 	end := i + 500
+	// 	if end > len(values) {
+	// 		end = len(values)
+	// 	}
+	// 	insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues[i:end], ",")))
+	// }
 
+	insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues, ",")))
 	return insertQueries
+}
+
+func (db *databaseStruct) validateQuery(query string) error {
+	_, result := db.client.Exec(fmt.Sprintf("EXPLAIN %s;", query))
+	return result
 }
 
 func (db *databaseStruct) makeUniqueId(field DatabaseFieldStruct) string {

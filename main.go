@@ -25,7 +25,7 @@ func main() {
 	)
 
 	// Deferred functions
-	defer db.Close()
+	defer db.SyncAndClose()
 	defer bot.SendTextToAdmin("Megalodon finished!")
 
 	// Send notification to admin
@@ -75,7 +75,9 @@ func main() {
 				<-queue
 			}()
 
-			sb.TestConfig(node, currentCount, maxCount)
+			if err := sb.TestConfig(node, currentCount, maxCount); err != nil {
+				logger.Error(err.Error())
+			}
 		}(rawConfig, i, nodesCount)
 	}
 
