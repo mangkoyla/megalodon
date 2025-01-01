@@ -2,6 +2,7 @@ package sandbox
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"time"
 
@@ -34,7 +35,8 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 	}
 
 	testResult := TestResultStruct{
-		Outbound: singConfig.Outbounds[0],
+		Outbound:  singConfig.Outbounds[0],
+		RawConfig: base64.StdEncoding.EncodeToString([]byte(rawConfig)),
 	}
 
 	for _, testType := range testTypes {

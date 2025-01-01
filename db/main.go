@@ -84,7 +84,8 @@ func (db *databaseStruct) createTableSafe() {
 			COUNTRY_CODE TEXT,
 			REGION TEXT,
 			ORG TEXT,
-			VPN TEXT
+			VPN TEXT,
+			RAW TEXT
 		);`
 	)
 
@@ -169,6 +170,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		fieldValues.VPN = outbound.Type
 		fieldValues.Server = outboundMapping["server"].(string)
 		fieldValues.ServerPort = int(outboundMapping["server_port"].(float64))
+		fieldValues.Raw = result.RawConfig
 
 		// Here we go assertion hell
 		if uuid, ok := outboundMapping["uuid"].(string); ok {
@@ -272,7 +274,8 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		value += fmt.Sprintf("'%s', ", fieldValue.CountryCode)
 		value += fmt.Sprintf("'%s', ", fieldValue.Region)
 		value += fmt.Sprintf("'%s', ", fieldValue.Org)
-		value += fmt.Sprintf("'%s'", fieldValue.VPN)
+		value += fmt.Sprintf("'%s', ", fieldValue.VPN)
+		value += fmt.Sprintf("'%s'", fieldValue.Raw)
 
 		value += ")"
 
@@ -301,7 +304,8 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		COUNTRY_CODE,
 		REGION,
 		ORG,
-		VPN
+		VPN,
+		RAW
 	) VALUES`
 
 	// Filter bad and build insert queries

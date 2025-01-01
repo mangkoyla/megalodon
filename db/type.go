@@ -27,4 +27,7 @@ type DatabaseFieldStruct struct {
 	Region      string `json:"region,omitempty"`       // 20
 	Org         string `json:"org,omitempty"`          // 21
 	VPN         string `json:"vpn,omitempty"`          // 22
+
+	// Additional fields
+	Raw string `json:"raw"` // 23
 }
