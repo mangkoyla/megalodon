@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/FoolVPN-ID/Megalodon/common/helper"
-	logger "github.com/FoolVPN-ID/Megalodon/log"
-	"github.com/FoolVPN-ID/Megalodon/sandbox"
-	"github.com/FoolVPN-ID/Megalodon/telegram/bot"
+	"github.com/FoolVPN-ID/megalodon/common/helper"
+	logger "github.com/FoolVPN-ID/megalodon/log"
+	"github.com/FoolVPN-ID/megalodon/sandbox"
+	"github.com/FoolVPN-ID/megalodon/telegram/bot"
 
 	_ "github.com/tursodatabase/libsql-client-go/libsql"
 )

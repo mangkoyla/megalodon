@@ -1,6 +1,6 @@
 package helper
 
-import "github.com/FoolVPN-ID/Megalodon/common/shared"
+import "github.com/FoolVPN-ID/megalodon/common/shared"
 
 func CCToEmoji(cc string) string {
 	for _, country := range shared.CountryList {

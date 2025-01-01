@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/FoolVPN-ID/Megalodon/common/helper"
+	"github.com/FoolVPN-ID/megalodon/common/helper"
 	"github.com/Noooste/azuretls-client"
 	box "github.com/sagernet/sing-box"
 	"github.com/sagernet/sing-box/option"

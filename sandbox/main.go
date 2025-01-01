@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"time"
 
-	logger "github.com/FoolVPN-ID/Megalodon/log"
+	logger "github.com/FoolVPN-ID/megalodon/log"
 	"github.com/FoolVPN-ID/tool/modules/config"
 	"github.com/sagernet/sing-box/option"
 )

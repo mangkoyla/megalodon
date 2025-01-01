@@ -5,11 +5,11 @@ import (
 	"sync"
 	"time"
 
-	database "github.com/FoolVPN-ID/Megalodon/db"
-	logger "github.com/FoolVPN-ID/Megalodon/log"
-	"github.com/FoolVPN-ID/Megalodon/provider"
-	"github.com/FoolVPN-ID/Megalodon/sandbox"
-	"github.com/FoolVPN-ID/Megalodon/telegram/bot"
+	database "github.com/FoolVPN-ID/megalodon/db"
+	logger "github.com/FoolVPN-ID/megalodon/log"
+	"github.com/FoolVPN-ID/megalodon/provider"
+	"github.com/FoolVPN-ID/megalodon/sandbox"
+	"github.com/FoolVPN-ID/megalodon/telegram/bot"
 	"github.com/joho/godotenv"
 )
 

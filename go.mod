@@ -1,4 +1,4 @@
-module github.com/FoolVPN-ID/Megalodon
+module github.com/FoolVPN-ID/megalodon
 
 go 1.23.2
 

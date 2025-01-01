@@ -1,6 +1,6 @@
 package provider
 
-import logger "github.com/FoolVPN-ID/Megalodon/log"
+import logger "github.com/FoolVPN-ID/megalodon/log"
 
 type providerStruct struct {
 	subs   []providerSubStruct

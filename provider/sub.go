@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/FoolVPN-ID/Megalodon/common/helper"
-	"github.com/FoolVPN-ID/Megalodon/constant"
+	"github.com/FoolVPN-ID/megalodon/common/helper"
+	"github.com/FoolVPN-ID/megalodon/constant"
 	"github.com/Noooste/azuretls-client"
 )
 
