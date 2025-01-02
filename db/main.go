@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ import (
 type databaseStruct struct {
 	connector       *libsql.Connector
 	client          *sql.DB
+	clientPool      chan *sql.DB
 	dbName          string
 	dbPath          string
 	dbDir           string
@@ -35,10 +37,11 @@ type databaseStruct struct {
 
 func MakeDatabase() *databaseStruct {
 	dbInstance := databaseStruct{
-		dbName:  "local-megalodon.db",
-		dbUrl:   os.Getenv("TURSO_DATABASE_URL"),
-		dbToken: os.Getenv("TURSO_AUTH_TOKEN"),
-		logger:  logger.MakeLogger(),
+		dbName:     "local-megalodon.db",
+		dbUrl:      os.Getenv("TURSO_DATABASE_URL"),
+		dbToken:    os.Getenv("TURSO_AUTH_TOKEN"),
+		clientPool: make(chan *sql.DB, 10),
+		logger:     logger.MakeLogger(),
 	}
 
 	dir, err := os.MkdirTemp("", "libsql-*")
@@ -62,9 +65,25 @@ func (db *databaseStruct) connect() {
 	}
 
 	client := sql.OpenDB(connector)
+	for i := 0; i < cap(db.clientPool); i++ {
+		db.clientPool <- sql.OpenDB(connector)
+	}
 
 	db.connector = connector
 	db.client = client
+}
+
+func (db *databaseStruct) StoreClient(client *sql.DB) {
+	db.clientPool <- client
+}
+
+func (db *databaseStruct) GetClient() *sql.DB {
+	client := <-db.clientPool
+	if err := client.Ping(); err != nil {
+		client = sql.OpenDB(db.connector)
+	}
+
+	return client
 }
 
 func (db *databaseStruct) SyncAndClose() {
@@ -275,6 +294,9 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 			}
 		}
 	}
+	// Manual memori clean up, due large size variable
+	results = nil
+	runtime.GC()
 
 	// Build queries
 	values := []string{}
@@ -337,50 +359,54 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		RAW
 	) VALUES`
 
-	// Validate insert per value
-	var (
-		validatedValues = []string{}
-		wg              sync.WaitGroup
-		queue           = make(chan struct{}, 100)
-	)
-	for i, value := range values {
-		wg.Add(1)
-		queue <- struct{}{}
-
-		db.logger.Info(fmt.Sprintf("[%d/%d] Validating account format...", i, len(values)))
-		go func(insertValue string) {
-			defer func() {
-				wg.Done()
-				<-queue
-			}()
-
-			if err := db.validateQuery(fmt.Sprintf("%s %s", baseInsertQuery, value)); err != nil {
-				db.logger.Error(err.Error())
-				return
-			}
-
-			validatedValues = append(validatedValues, insertValue)
-		}(value)
-	}
-	wg.Wait()
-
 	// Filter bad and build insert queries
-	insertQueries := []string{}
+	var (
+		insertQueries = []string{}
+		wg            sync.WaitGroup
+		queue         = make(chan struct{}, 100)
+		valueLength   = 100
+		isValidating  = false
+	)
 
-	// for i := 0; i < len(validatedValues); i += 500 {
-	// 	end := i + 500
-	// 	if end > len(values) {
-	// 		end = len(values)
-	// 	}
-	// 	insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues[i:end], ",")))
-	// }
+	if isValidating {
+		for i, value := range values {
+			wg.Add(1)
+			queue <- struct{}{}
 
-	insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(validatedValues, ",")))
+			db.logger.Info(fmt.Sprintf("[%d/%d] Validating account format...", i, len(values)))
+			go func(insertValue string) {
+				defer func() {
+					wg.Done()
+					<-queue
+				}()
+
+				if err := db.validateQuery(fmt.Sprintf("%s %s", baseInsertQuery, value)); err != nil {
+					db.logger.Error(err.Error())
+					values[i] = ""
+				} else {
+					values[i] = insertValue
+				}
+			}(value)
+		}
+		wg.Wait()
+	}
+
+	for i := 0; i < len(values); i += valueLength {
+		end := i + valueLength
+		if end > len(values) {
+			end = len(values)
+		}
+		insertQueries = append(insertQueries, fmt.Sprintf(`%s %s;`, baseInsertQuery, strings.Join(helper.RemoveEmptyStringFromList(values[i:end]), ",")))
+	}
+
 	return insertQueries
 }
 
 func (db *databaseStruct) validateQuery(query string) error {
-	_, result := db.client.Exec(fmt.Sprintf("EXPLAIN %s;", query))
+	// Use client pooling
+	client := db.GetClient()
+	defer db.StoreClient(client)
+	_, result := client.Exec(fmt.Sprintf("EXPLAIN %s;", query))
 	return result
 }
 

@@ -1,11 +1,16 @@
 package provider
 
-import logger "github.com/FoolVPN-ID/megalodon/log"
+import (
+	"sync"
+
+	logger "github.com/FoolVPN-ID/megalodon/log"
+)
 
 type providerStruct struct {
 	subs   []providerSubStruct
 	Nodes  []string
 	logger logger.LoggerStruct
+	sync.Mutex
 }
 
 func MakeSubProvider() *providerStruct {

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/FoolVPN-ID/megalodon/common/helper"
@@ -23,6 +24,7 @@ type sandboxStruct struct {
 	Results []TestResultStruct
 	log     *logger.LoggerStruct
 	ids     []string
+	sync.Mutex
 }
 
 func MakeSandbox() *sandboxStruct {
@@ -109,7 +111,6 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 			if configGeoip, err := testSingConfigWithContext(configForTest, ctx); err == nil {
 				testResult.TestPassed = append(testResult.TestPassed, connMode)
 				testResult.ConfigGeoip = configGeoip
-
 				// sb.log.Success(fmt.Sprintf("[%d/%d] [%d+%d] %v %s %s", accountIndex, accountTotal, len(sb.Results), len(testResult.TestPassed), testResult.TestPassed, configGeoip.Country, configGeoip.AsOrganization))
 			} else {
 				// sb.log.Error(fmt.Sprintf("[%d/%d] %s", accountIndex, accountTotal, err.Error()))
@@ -118,8 +119,14 @@ func (sb *sandboxStruct) TestConfig(rawConfig string, accountIndex, accountTotal
 	}
 
 	if len(testResult.TestPassed) > 0 {
-		sb.Results = append(sb.Results, testResult)
+		sb.addResult(testResult)
 	}
 
 	return nil
+}
+
+func (sb *sandboxStruct) addResult(result TestResultStruct) {
+	sb.Lock()
+	defer sb.Unlock()
+	sb.Results = append(sb.Results, result)
 }

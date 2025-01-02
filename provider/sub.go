@@ -96,7 +96,7 @@ func (prov *providerStruct) GatherNodes() {
 					for _, node := range nodes {
 						for _, acceptedType := range constant.ACCEPTED_TYPES {
 							if strings.HasPrefix(node, acceptedType) {
-								prov.Nodes = append(prov.Nodes, node)
+								prov.addNode(node)
 							}
 						}
 					}
@@ -107,4 +107,10 @@ func (prov *providerStruct) GatherNodes() {
 
 	// Wait for all goroutines
 	wg.Wait()
+}
+
+func (prov *providerStruct) addNode(node string) {
+	prov.Lock()
+	defer prov.Unlock()
+	prov.Nodes = append(prov.Nodes, node)
 }
