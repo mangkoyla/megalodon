@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -16,16 +15,11 @@ import (
 	logger "github.com/FoolVPN-ID/megalodon/log"
 	"github.com/FoolVPN-ID/megalodon/sandbox"
 	"github.com/FoolVPN-ID/megalodon/telegram/bot"
-	"github.com/tursodatabase/go-libsql"
+	_ "github.com/tursodatabase/libsql-client-go/libsql"
 )
 
 type databaseStruct struct {
-	connector       *libsql.Connector
 	client          *sql.DB
-	clientPool      chan *sql.DB
-	dbName          string
-	dbPath          string
-	dbDir           string
 	dbUrl           string
 	dbToken         string
 	logger          *logger.LoggerStruct
@@ -37,73 +31,30 @@ type databaseStruct struct {
 
 func MakeDatabase() *databaseStruct {
 	dbInstance := databaseStruct{
-		dbName:     "local-megalodon.db",
-		dbUrl:      os.Getenv("TURSO_DATABASE_URL"),
-		dbToken:    os.Getenv("TURSO_AUTH_TOKEN"),
-		clientPool: make(chan *sql.DB, 10),
-		logger:     logger.MakeLogger(),
+		dbUrl:   os.Getenv("TURSO_DATABASE_URL"),
+		dbToken: os.Getenv("TURSO_AUTH_TOKEN"),
+		logger:  logger.MakeLogger(),
 	}
 
-	dir, err := os.MkdirTemp("", "libsql-*")
-	if err != nil {
-		dbInstance.logger.Error(err.Error())
-		panic(err)
-	}
-
-	dbInstance.dbDir = dir
-	dbInstance.dbPath = filepath.Join(dir, dbInstance.dbName)
 	dbInstance.connect()
 
 	return &dbInstance
 }
 
 func (db *databaseStruct) connect() {
-	connector, err := libsql.NewEmbeddedReplicaConnector(db.dbPath, db.dbUrl, libsql.WithAuthToken(db.dbToken))
+	client, err := sql.Open("libsql", fmt.Sprintf("%s?authToken=%s", db.dbUrl, db.dbToken))
 	if err != nil {
-		db.logger.Error(err.Error())
-		panic(err)
+		panic(err.Error())
 	}
 
-	client := sql.OpenDB(connector)
-	for i := 0; i < cap(db.clientPool); i++ {
-		db.clientPool <- sql.OpenDB(connector)
-	}
-
-	db.connector = connector
 	db.client = client
 }
 
-func (db *databaseStruct) StoreClient(client *sql.DB) {
-	db.clientPool <- client
-}
-
-func (db *databaseStruct) GetClient() *sql.DB {
-	client := <-db.clientPool
-	if err := client.Ping(); err != nil {
-		client = sql.OpenDB(db.connector)
-	}
-
-	return client
-}
-
 func (db *databaseStruct) SyncAndClose() {
-	db.logger.Info("Syncing database...")
-	if _, err := db.connector.Sync(); err != nil {
-		db.logger.Error(err.Error())
-	}
-
-	db.logger.Info("Closing connector...")
-	if err := db.connector.Close(); err != nil {
-		db.logger.Error(err.Error())
-	}
-
 	db.logger.Info("Closing client...")
 	if err := db.client.Close(); err != nil {
 		db.logger.Error(err.Error())
 	}
-
-	db.logger.Info("Cleaning temp...")
-	defer os.RemoveAll(db.dbDir)
 }
 
 func (db *databaseStruct) createTableSafe() {
@@ -403,10 +354,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 }
 
 func (db *databaseStruct) validateQuery(query string) error {
-	// Use client pooling
-	client := db.GetClient()
-	defer db.StoreClient(client)
-	_, result := client.Exec(fmt.Sprintf("EXPLAIN %s;", query))
+	_, result := db.client.Exec(fmt.Sprintf("EXPLAIN %s;", query))
 	return result
 }
 
