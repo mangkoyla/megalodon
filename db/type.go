@@ -1,6 +1,6 @@
 package database
 
-type DatabaseFieldStruct struct {
+type ProxyFieldStruct struct {
 	// VPN fields
 	Server      string `json:"server,omitempty"`       // 0
 	Ip          string `json:"ip,omitempty"`           // 1

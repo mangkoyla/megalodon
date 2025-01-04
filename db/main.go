@@ -60,31 +60,31 @@ func (db *databaseStruct) SyncAndClose() {
 func (db *databaseStruct) createTableSafe() {
 	var (
 		crateTableQuery = `CREATE TABLE IF NOT EXISTS proxies (
-			ID INTEGER PRIMARY KEY,
-			SERVER TEXT,
-			IP TEXT,
-			SERVER_PORT INT8,
-			UUID TEXT,
-			PASSWORD TEXT,
-			SECURITY TEXT,
-			ALTER_ID INT2,
-			METHOD TEXT,
-			PLUGIN TEXT,
-			PLUGIN_OPTS TEXT,
-			HOST TEXT,
-			TLS INT2,
-			TRANSPORT TEXT,
-			PATH TEXT,
-			SERVICE_NAME TEXT,
-			INSECURE INT2,
-			SNI TEXT,
-			REMARK TEXT,
-			CONN_MODE TEXT,
-			COUNTRY_CODE TEXT,
-			REGION TEXT,
-			ORG TEXT,
-			VPN TEXT,
-			RAW TEXT
+			id INTEGER PRIMARY KEY,
+			server STRING,
+			ip STRING,
+			server_port INT8,
+			uuid STRING,
+			password STRING,
+			security STRING,
+			alter_id INT2,
+			method STRING,
+			plugin STRING,
+			plugin_opts STRING,
+			host STRING,
+			tls INT2,
+			transport STRING,
+			path STRING,
+			service_name STRING,
+			insecure INT2,
+			sni STRING,
+			remark STRING,
+			conn_mode STRING,
+			country_code STRING,
+			region STRING,
+			org STRING,
+			vpn STRING,
+			raw STRING
 		);`
 	)
 
@@ -145,10 +145,10 @@ func (db *databaseStruct) Save(results []sandbox.TestResultStruct) error {
 func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) []string {
 	db.rawAccountTotal = len(results)
 
-	tableFieldValues := []DatabaseFieldStruct{}
+	tableFieldValues := []ProxyFieldStruct{}
 	for _, result := range results {
 		var (
-			fieldValues = DatabaseFieldStruct{}
+			fieldValues = ProxyFieldStruct{}
 			outbound    = result.Outbound
 		)
 
@@ -358,14 +358,14 @@ func (db *databaseStruct) validateQuery(query string) error {
 	return result
 }
 
-func (db *databaseStruct) makeUniqueId(field DatabaseFieldStruct) string {
+func (db *databaseStruct) makeUniqueId(field ProxyFieldStruct) string {
 	// Server Port, UUID, Password, Plugin Opts, Path, Transport, Conn Mode, Country, Org, VPN
 	uid := fmt.Sprintf("%d_%s_%s_%s_%s_%s_%s_%s_%s_%s", field.ServerPort, field.UUID, field.Password, field.PluginOpts, field.Path, field.Transport, field.ConnMode, field.CountryCode, field.Org, field.VPN)
 
 	return uid
 }
 
-func (db *databaseStruct) checkIsExists(field DatabaseFieldStruct) bool {
+func (db *databaseStruct) checkIsExists(field ProxyFieldStruct) bool {
 	uid := db.makeUniqueId(field)
 	for _, existedUid := range db.uniqueIds {
 		if existedUid == uid {
