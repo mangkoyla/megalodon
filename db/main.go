@@ -169,6 +169,7 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 		fieldValues.VPN = outbound.Type
 		fieldValues.Server = outboundMapping["server"].(string)
 		fieldValues.ServerPort = int(outboundMapping["server_port"].(float64))
+		fieldValues.Transport = "tcp"
 		fieldValues.Raw = result.RawConfig
 
 		// Here we go assertion hell
