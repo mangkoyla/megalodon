@@ -14,8 +14,10 @@ import (
 )
 
 var orgPattern = regexp.MustCompile(`(\w*)`)
-
-const connectivityTest = "https://myip.shylook.workers.dev"
+var connectivityTestList = []string{
+	"https://myip.shylook.workers.dev",
+	"https://cloudflare-ip.html.zone/geo",
+}
 
 func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (configGeoipStruct, error) {
 	// Re-allocate free port
@@ -43,22 +45,28 @@ func testSingConfigWithContext(singConfig option.Options, ctx context.Context) (
 
 	session.SetProxy(fmt.Sprintf("socks5://0.0.0.0:%v", freePort))
 
-	if err := session.Connect(connectivityTest); err != nil {
-		return configGeoip, err
-	}
+	for _, connectivityTest := range connectivityTestList {
+		if err := session.Connect(connectivityTest); err != nil {
+			return configGeoip, err
+		}
 
-	resp, err := session.Get(connectivityTest)
-	if err != nil {
-		return configGeoip, err
-	} else {
-		if resp.StatusCode == 200 {
-			json.Unmarshal(resp.Body, &configGeoip)
+		resp, err := session.Get(connectivityTest)
+		if err != nil {
+			return configGeoip, err
+		} else {
+			if resp.StatusCode == 200 {
+				json.Unmarshal(resp.Body, &configGeoip)
+			}
+		}
+
+		// Post-processing geoip
+		filteredAsOrganization := orgPattern.FindAllString(configGeoip.AsOrganization, -1)
+		configGeoip.AsOrganization = strings.Join(filteredAsOrganization, " ")
+
+		if configGeoip.AsOrganization != "" && configGeoip.Country != "" {
+			break
 		}
 	}
-
-	// Post-processing geoip
-	filteredAsOrganization := orgPattern.FindAllString(configGeoip.AsOrganization, -1)
-	configGeoip.AsOrganization = strings.Join(filteredAsOrganization, " ")
 
 	return configGeoip, nil
 }
