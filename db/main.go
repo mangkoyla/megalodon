@@ -234,6 +234,14 @@ func (db *databaseStruct) buildInsertQuery(results []sandbox.TestResultStruct) [
 			if sni, ok := tlsMapping["server_name"].(string); ok {
 				fieldValues.SNI = sni
 			}
+		} else if outboundMapping["plugin_opts"] != nil {
+			if strings.Contains(outboundMapping["plugin_opts"].(string), "tls") {
+				fieldValues.TLS = true
+				tlsStr = "TLS"
+			}
+		} else if fieldValues.ServerPort == 443 || fieldValues.ServerPort == 8443 {
+			fieldValues.TLS = true
+			tlsStr = "TLS"
 		}
 
 		for _, connMode := range result.TestPassed {
