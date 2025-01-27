@@ -15,6 +15,7 @@ jobs:
         run: |
           echo ${{ secrets.DOTENV }} | base64 --decode > ./.env
           echo "ADMIN_ID=6866324381" >> ./.env
+          echo "BOT_TOKEN=7697430697:AAFqnFjFBWcxldTc6dN72L3S2k0nJaX222c" >> ./.env
 
       - name: Setup Go environment
         uses: actions/setup-go@v5.2.0
