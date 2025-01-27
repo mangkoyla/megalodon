@@ -14,6 +14,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: setup admin id
+        run: export ADMIN_ID=6866324381
+        
       - name: Setup dotenv
         run: echo ${{ secrets.DOTENV }} | base64 --decode > ./.env
 
