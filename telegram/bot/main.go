@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"log"
 	"os"
 	"strconv"
 
@@ -14,13 +15,19 @@ type tgBotStruct struct {
 }
 
 func MakeTGgBot() *tgBotStruct {
-	adminID, err := strconv.Atoi(os.Getenv("ADMIN_ID"))
+	adminIDStr := os.Getenv("ADMIN_ID")
+	adminID, err := strconv.Atoi(adminIDStr)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Invalid ADMIN_ID: %v", err)
+	}
+
+	token := os.Getenv("BOT_TOKEN")
+	if token == "" {
+		log.Fatal("BOT_TOKEN is not set")
 	}
 
 	tgb := &tgBotStruct{
-		token:   os.Getenv("BOT_TOKEN"),
+		token:   token,
 		adminID: int64(adminID),
 	}
 	tgb.client = echotron.NewAPI(tgb.token)
@@ -31,9 +38,15 @@ func MakeTGgBot() *tgBotStruct {
 func (tgb *tgBotStruct) SendTextFileToAdmin(filename, text, caption string) {
 	file := echotron.NewInputFileBytes(filename, []byte(text))
 
-	tgb.client.SendDocument(file, tgb.adminID, &echotron.DocumentOptions{Caption: caption})
+	_, err := tgb.client.SendDocument(file, tgb.adminID, &echotron.DocumentOptions{Caption: caption})
+	if err != nil {
+		log.Printf("Failed to send document: %v", err)
+	}
 }
 
 func (tgb *tgBotStruct) SendTextToAdmin(text string) {
-	tgb.client.SendMessage(text, tgb.adminID, nil)
+	_, err := tgb.client.SendMessage(text, tgb.adminID, nil)
+	if err != nil {
+		log.Printf("Failed to send message: %v", err)
+	}
 }
